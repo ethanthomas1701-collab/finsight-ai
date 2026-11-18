@@ -20,4 +20,4 @@ Permettre de rechercher une entreprise par son ticker (ex. MSFT) et d'obtenir :
 ## Installation (à compléter)
 
 ```bash
-git clone https://github.com/TON-PSEUDO/finsight-ai.git
+git clone https://github.com/ethanthomas1701-collab/finsight-ai.git
