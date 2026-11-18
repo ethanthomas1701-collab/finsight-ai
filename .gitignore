@@ -1,0 +1,10 @@
+# environnement Python
+.venv/
+__pycache__/
+*.pyc
+
+# données téléchargées (lourdes, régénérables)
+data/
+
+# secrets : clés d'API, mots de passe
+.env
