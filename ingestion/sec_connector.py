@@ -3,8 +3,9 @@
 Couche « bronze » : on sauvegarde la réponse telle quelle, sans transformation,
 avec la date d'ingestion. Le nettoyage viendra plus tard (couche « silver »).
 
-Utilisation (depuis la racine du dépôt), avec un ticker ou un CIK :
+Utilisation (depuis la racine du dépôt), avec un ou plusieurs tickers ou CIK :
     python -m ingestion.sec_connector MSFT
+    python -m ingestion.sec_connector MSFT AAPL GOOGL
     python -m ingestion.sec_connector 0000789019
 """
 
@@ -12,6 +13,7 @@ import json
 import logging
 import os
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -21,6 +23,7 @@ BASE_URL = "https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json"
 TICKERS_URL = "https://www.sec.gov/files/company_tickers.json"
 BRONZE_DIR = Path("data/bronze")
 TIMEOUT_SECONDES = 30
+PAUSE_SECONDES = 0.2  # la SEC limite à 10 requêtes par seconde
 
 logger = logging.getLogger(__name__)
 
@@ -123,27 +126,59 @@ def save_raw(data, cik, dossier=BRONZE_DIR):
     return chemin
 
 
-def main(ticker_ou_cik):
-    """Récupère puis sauvegarde les données d'une entreprise (ticker ou CIK)."""
-    argument = str(ticker_ou_cik).strip()
+def resoudre_cik(argument, table):
+    """Renvoie le CIK sur 10 chiffres d'un argument : un CIK (que des chiffres) ou un ticker.
+
+    Fonction sans réseau : la table des tickers est passée en paramètre.
+    """
+    argument = str(argument).strip()
     if argument.isdigit():
-        cik = argument
-    else:
-        cik = ticker_vers_cik(argument)
-        logger.info("Ticker %s -> CIK %s", argument.upper(), cik)
+        return normaliser_cik(argument)
+    return trouver_cik(argument, table)
+
+
+def ingerer_entreprise(cik):
+    """Récupère puis sauvegarde les données brutes d'une entreprise. Renvoie le chemin du fichier."""
     data = fetch_company_facts(cik)
-    logger.info("Données reçues pour %s", data["entityName"])
     chemin = save_raw(data, cik)
-    logger.info("Réponse brute sauvegardée dans %s", chemin)
+    logger.info("%s : données brutes sauvegardées dans %s", data["entityName"], chemin)
+    return chemin
+
+
+def main(arguments):
+    """Ingère plusieurs entreprises (tickers ou CIK). Renvoie la liste des arguments en échec.
+
+    Une erreur sur une entreprise n'arrête pas les suivantes.
+    """
+    table = None
+    if any(not str(a).strip().isdigit() for a in arguments):
+        table = fetch_company_tickers()  # téléchargée une seule fois pour tous les tickers
+
+    echecs = []
+    for i, argument in enumerate(arguments):
+        if i > 0:
+            time.sleep(PAUSE_SECONDES)
+        try:
+            cik = resoudre_cik(argument, table)
+            ingerer_entreprise(cik)
+        except SecConnectorError as e:
+            logger.error("%s : %s", argument, e)
+            echecs.append(argument)
+    return echecs
 
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-    if len(sys.argv) != 2:
-        print("Usage : python -m ingestion.sec_connector <TICKER ou CIK>")
+    if len(sys.argv) < 2:
+        print("Usage : python -m ingestion.sec_connector <TICKER ou CIK> [<TICKER ou CIK> ...]")
         sys.exit(1)
     try:
-        main(sys.argv[1])
+        echecs = main(sys.argv[1:])
     except SecConnectorError as e:
         logger.error(e)
+        sys.exit(1)
+    reussites = len(sys.argv) - 1 - len(echecs)
+    logger.info("Terminé : %d réussite(s), %d échec(s)", reussites, len(echecs))
+    if echecs:
+        logger.error("En échec : %s", ", ".join(echecs))
         sys.exit(1)
