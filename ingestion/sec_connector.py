@@ -3,7 +3,8 @@
 Couche « bronze » : on sauvegarde la réponse telle quelle, sans transformation,
 avec la date d'ingestion. Le nettoyage viendra plus tard (couche « silver »).
 
-Utilisation (depuis la racine du dépôt) :
+Utilisation (depuis la racine du dépôt), avec un ticker ou un CIK :
+    python -m ingestion.sec_connector MSFT
     python -m ingestion.sec_connector 0000789019
 """
 
@@ -17,6 +18,7 @@ from pathlib import Path
 import requests
 
 BASE_URL = "https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json"
+TICKERS_URL = "https://www.sec.gov/files/company_tickers.json"
 BRONZE_DIR = Path("data/bronze")
 TIMEOUT_SECONDES = 30
 
@@ -46,9 +48,8 @@ def normaliser_cik(cik):
     return cik.zfill(10)
 
 
-def fetch_company_facts(cik):
-    """Appelle l'API SEC et renvoie la réponse JSON sous forme de dictionnaire."""
-    url = BASE_URL.format(cik=normaliser_cik(cik))
+def get_json(url, message_404):
+    """Fait un GET vers la SEC et renvoie le JSON. Toute erreur devient une SecConnectorError."""
     headers = {"User-Agent": get_user_agent()}
 
     try:
@@ -59,15 +60,47 @@ def fetch_company_facts(cik):
     except requests.HTTPError as e:
         code = e.response.status_code
         if code == 404:
-            raise SecConnectorError(f"Aucune donnée pour le CIK {cik}") from e
+            raise SecConnectorError(message_404) from e
         raise SecConnectorError(f"Erreur HTTP {code} pour {url}") from e
     except requests.RequestException as e:
         raise SecConnectorError(f"Échec réseau : {e}") from e
 
     try:
-        data = response.json()
+        return response.json()
     except ValueError as e:
         raise SecConnectorError("La réponse de la SEC n'est pas du JSON valide") from e
+
+
+def fetch_company_tickers():
+    """Télécharge la table ticker -> CIK publiée par la SEC."""
+    table = get_json(TICKERS_URL, "Table des tickers introuvable sur le site de la SEC")
+    if not isinstance(table, dict) or not table:
+        raise SecConnectorError("Table des tickers vide ou mal formée")
+    return table
+
+
+def trouver_cik(ticker, table):
+    """Cherche un ticker dans la table de la SEC et renvoie son CIK sur 10 chiffres.
+
+    La table a la forme {"0": {"cik_str": 789019, "ticker": "MSFT", "title": "..."}, ...}.
+    Fonction sans réseau : facile à tester.
+    """
+    ticker = str(ticker).strip().upper()
+    for entreprise in table.values():
+        if entreprise.get("ticker", "").upper() == ticker:
+            return normaliser_cik(entreprise["cik_str"])
+    raise SecConnectorError(f"Ticker inconnu : {ticker!r}")
+
+
+def ticker_vers_cik(ticker):
+    """Télécharge la table de la SEC puis renvoie le CIK du ticker."""
+    return trouver_cik(ticker, fetch_company_tickers())
+
+
+def fetch_company_facts(cik):
+    """Appelle l'API SEC et renvoie la réponse JSON sous forme de dictionnaire."""
+    url = BASE_URL.format(cik=normaliser_cik(cik))
+    data = get_json(url, f"Aucune donnée pour le CIK {cik}")
 
     if "facts" not in data or "entityName" not in data:
         raise SecConnectorError("Réponse inattendue : clés 'facts' ou 'entityName' manquantes")
@@ -90,8 +123,14 @@ def save_raw(data, cik, dossier=BRONZE_DIR):
     return chemin
 
 
-def main(cik):
-    """Récupère puis sauvegarde les données d'une entreprise."""
+def main(ticker_ou_cik):
+    """Récupère puis sauvegarde les données d'une entreprise (ticker ou CIK)."""
+    argument = str(ticker_ou_cik).strip()
+    if argument.isdigit():
+        cik = argument
+    else:
+        cik = ticker_vers_cik(argument)
+        logger.info("Ticker %s -> CIK %s", argument.upper(), cik)
     data = fetch_company_facts(cik)
     logger.info("Données reçues pour %s", data["entityName"])
     chemin = save_raw(data, cik)
@@ -101,7 +140,7 @@ def main(cik):
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     if len(sys.argv) != 2:
-        print("Usage : python -m ingestion.sec_connector <CIK>")
+        print("Usage : python -m ingestion.sec_connector <TICKER ou CIK>")
         sys.exit(1)
     try:
         main(sys.argv[1])
