@@ -92,6 +92,19 @@ def serie_indicateur(us_gaap, concepts, est_un_flux):
     return resultat
 
 
+def serie_passif(us_gaap):
+    """Total passif : le concept direct 'Liabilities' en priorité, sinon déduit du bilan.
+
+    Les anciens rapports de Microsoft n'ont pas 'Liabilities' (absent avant 2010). On applique
+    l'identité du bilan : passif = total passif et capitaux propres - capitaux propres.
+    """
+    directe = serie_indicateur(us_gaap, ["Liabilities"], False)
+    total_et_capitaux = serie_indicateur(us_gaap, ["LiabilitiesAndStockholdersEquity"], False)
+    capitaux_propres = serie_indicateur(us_gaap, ["StockholdersEquity"], False)
+    deduite = total_et_capitaux - capitaux_propres  # aligné sur la date de fin
+    return directe.combine_first(deduite)
+
+
 def construire_silver(data):
     """Construit le tableau annuel d'une entreprise à partir d'une réponse SEC."""
     us_gaap = data["facts"].get("us-gaap", {})
@@ -99,6 +112,7 @@ def construire_silver(data):
         nom: serie_indicateur(us_gaap, concepts, est_un_flux)
         for nom, (concepts, est_un_flux) in INDICATEURS.items()
     }
+    colonnes["total_passif"] = serie_passif(us_gaap)
     df = pd.DataFrame(colonnes)
     df.index.name = "date_fin"
     df = df.reset_index().sort_values("date_fin")
