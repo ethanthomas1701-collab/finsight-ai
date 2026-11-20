@@ -41,6 +41,17 @@ INDICATEURS = {
     "resultat_net": (["NetIncomeLoss"], True),
     "total_actif": (["Assets"], False),
     "total_passif": (["Liabilities"], False),
+    "actif_courant": (["AssetsCurrent"], False),
+    "passif_courant": (["LiabilitiesCurrent"], False),
+    "flux_operationnel": (["NetCashProvidedByUsedInOperatingActivities"], True),
+    # Investissements : le nom change selon les années (Apple 2007-2014 utilise l'autre concept).
+    "investissements": (
+        [
+            "PaymentsToAcquirePropertyPlantAndEquipment",
+            "PaymentsToAcquireProductiveAssets",
+        ],
+        True,
+    ),
 }
 
 # Un exercice fiscal dure 52 ou 53 semaines (364 ou 371 jours) : marge large.

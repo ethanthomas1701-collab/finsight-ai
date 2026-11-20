@@ -43,6 +43,8 @@ def calculer_indicateurs(df):
     exercice_consecutif = df["annee"].diff() == 1
     croissance = df["chiffre_affaires"] / ca_precedent.where(ca_precedent != 0) - 1
     df["croissance_ca"] = croissance.where(exercice_consecutif)
+    df["current_ratio"] = diviser(df["actif_courant"], df["passif_courant"])
+    df["free_cash_flow"] = df["flux_operationnel"] - df["investissements"]
     return df
 
 

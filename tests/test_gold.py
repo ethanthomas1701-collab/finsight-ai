@@ -6,8 +6,34 @@ import pytest
 from transform.gold import calculer_indicateurs
 
 
+COLONNES_OPTIONNELLES = ["actif_courant", "passif_courant", "flux_operationnel", "investissements"]
+
+
 def tableau(**colonnes):
-    return pd.DataFrame(colonnes)
+    """Tableau de test. Les colonnes récentes absentes valent NaN par défaut."""
+    df = pd.DataFrame(colonnes)
+    for nom in COLONNES_OPTIONNELLES:
+        if nom not in df:
+            df[nom] = float("nan")
+    return df
+
+
+def test_current_ratio_et_free_cash_flow():
+    df = tableau(
+        date_fin=["2025-06-30"],
+        annee=[2025],
+        chiffre_affaires=[1000.0],
+        resultat_net=[100.0],
+        total_actif=[5000.0],
+        total_passif=[3000.0],
+        actif_courant=[2000.0],
+        passif_courant=[1000.0],
+        flux_operationnel=[400.0],
+        investissements=[150.0],
+    )
+    ligne = calculer_indicateurs(df).iloc[0]
+    assert ligne["current_ratio"] == pytest.approx(2.0)
+    assert ligne["free_cash_flow"] == pytest.approx(250.0)
 
 
 def test_marge_roe_roa_et_dette_sur_une_ligne():
