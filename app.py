@@ -43,6 +43,18 @@ def tableau_entreprise(gold, entreprise):
     return df[["annee", *LIBELLES]].rename(columns=LIBELLES).reset_index(drop=True)
 
 
+def comparer(gold, entreprises, indicateur):
+    """Tableau années x entreprises pour comparer un indicateur (unités d'affichage)."""
+    df = tableau_entreprise_brute(gold, entreprises)
+    return df.pivot(index="annee", columns="entreprise", values=indicateur).sort_index()
+
+
+def tableau_entreprise_brute(gold, entreprises):
+    """Lignes de plusieurs entreprises avec les unités d'affichage, sans les filtrer une à une."""
+    morceaux = [tableau_entreprise(gold, nom).assign(entreprise=nom) for nom in entreprises]
+    return pd.concat(morceaux, ignore_index=True)
+
+
 def main():
     st.set_page_config(page_title="FinSight AI", layout="wide")
     st.title("FinSight AI")
@@ -77,6 +89,16 @@ def main():
         st.line_chart(df.set_index("annee")[["Free cash flow (Md$)"]])
         st.subheader("Liquidité et endettement")
         st.line_chart(df.set_index("annee")[["Current ratio (x)", "Dette / capitaux propres (x)"]])
+
+    st.subheader("Comparaison entre entreprises")
+    choix = st.multiselect(
+        "Entreprises à comparer",
+        sorted(gold["entreprise"].unique()),
+        default=sorted(gold["entreprise"].unique())[:3],
+    )
+    indicateur = st.selectbox("Indicateur", [LIBELLES[c] for c in EN_POURCENTS + ["current_ratio"]])
+    if choix:
+        st.line_chart(comparer(gold, choix, indicateur))
 
 
 if __name__ == "__main__":

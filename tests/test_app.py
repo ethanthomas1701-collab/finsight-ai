@@ -3,7 +3,7 @@
 import pandas as pd
 import pytest
 
-from app import tableau_entreprise
+from app import comparer, tableau_entreprise
 
 
 def gold_exemple():
@@ -53,3 +53,10 @@ def test_l_interface_se_lance_sans_erreur():
     chemin_app = Path(__file__).resolve().parent.parent / "app.py"
     appli = AppTest.from_file(str(chemin_app)).run(timeout=60)
     assert not appli.exception
+
+
+def test_comparaison_met_les_entreprises_en_colonnes():
+    tableau = comparer(gold_exemple(), ["A CORP", "B CORP"], "Marge nette (%)")
+    assert list(tableau.columns) == ["A CORP", "B CORP"]
+    assert list(tableau.index) == [2024, 2025]
+    assert tableau.loc[2025, "B CORP"] == pytest.approx(20.0)
