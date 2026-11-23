@@ -88,7 +88,7 @@ def main():
     df = tableau_entreprise(gold, entreprise)
 
     st.subheader("Indicateurs par exercice")
-    st.dataframe(df.set_index("annee"), use_container_width=True)
+    st.dataframe(df.set_index("annee"), width="stretch")
 
     col1, col2 = st.columns(2)
     with col1:
