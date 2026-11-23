@@ -74,7 +74,7 @@ streamlit run app.py
 python -m assistant.agent_local "Comment a évolué la marge nette d'Apple ?"
 ```
 
-Le site publié utilise les tableaux du dossier `donnees_publiques/`, qui sont des données dérivées de sources publiques.
+**Site en ligne** : [finsight-ai-kk4oydvx53venocvf2ebsw.streamlit.app](https://finsight-ai-kk4oydvx53venocvf2ebsw.streamlit.app/). Il utilise les tableaux du dossier `donnees_publiques/`, qui sont des données dérivées de sources publiques. L'assistant en langage naturel n'y est pas disponible : il tourne en local avec Ollama.
 
 ## Tests
 
