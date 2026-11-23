@@ -60,3 +60,13 @@ def test_comparaison_met_les_entreprises_en_colonnes():
     assert list(tableau.columns) == ["A CORP", "B CORP"]
     assert list(tableau.index) == [2024, 2025]
     assert tableau.loc[2025, "B CORP"] == pytest.approx(20.0)
+
+
+def test_utilise_les_donnees_publiques_quand_data_est_absent(tmp_path, monkeypatch):
+    import app as appli_module
+
+    monkeypatch.setattr(appli_module, "GOLD", tmp_path / "absent.csv")
+    publique = tmp_path / "publique.csv"
+    publique.write_text("x", encoding="utf-8")
+    monkeypatch.setattr(appli_module, "GOLD_PUBLIC", publique)
+    assert appli_module.chemin_donnees() == publique
