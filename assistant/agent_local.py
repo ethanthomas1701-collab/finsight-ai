@@ -78,9 +78,10 @@ def deviner_requete(question, base=requetes.BASE):
     entreprises = []
     for nom in requetes.entreprises_connues(base):
         # Le nom complet, ou son premier mot s'il est assez long pour ne pas être un mot courant.
+        premier = re.sub(r"[^\w]", " ", nom).split()[0].casefold()  # « AMAZON.COM, INC. » -> « amazon »
         candidats = [nom.casefold()]
-        if len(nom.split()[0]) >= 4:
-            candidats.append(nom.split()[0].casefold())
+        if len(premier) >= 4:
+            candidats.append(premier)
         if any(re.search(rf"\b{re.escape(c)}\b", texte) for c in candidats):
             entreprises.append(nom)
     for alias, cible in requetes.ALIAS.items():

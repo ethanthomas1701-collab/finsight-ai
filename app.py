@@ -3,7 +3,9 @@
 Lancement (depuis la racine du dépôt, environnement finsight actif) :
     streamlit run app.py
 
-Les données viennent de data/gold/indicateurs.csv (produit par transform.gold).
+Les données viennent de data/gold/indicateurs.csv (produit par transform.gold). Si ce fichier
+n'existe pas (par exemple sur le site publié), l'application lit la copie publique dans
+donnees_publiques/indicateurs.csv.
 Projet pédagogique : ces indicateurs ne constituent pas un conseil en investissement.
 """
 
@@ -13,7 +15,16 @@ import pandas as pd
 import streamlit as st
 
 GOLD = Path("data/gold/indicateurs.csv")
+GOLD_PUBLIC = Path("donnees_publiques/indicateurs.csv")
 MILLIARD = 1e9
+
+
+def chemin_donnees():
+    """Renvoie le fichier d'indicateurs à utiliser : local d'abord, public ensuite."""
+    for chemin in (GOLD, GOLD_PUBLIC):
+        if chemin.exists():
+            return chemin
+    return None
 
 # Colonnes du tableau gold -> libellés affichés.
 LIBELLES = {
