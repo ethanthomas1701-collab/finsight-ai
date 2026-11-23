@@ -74,7 +74,8 @@ def main():
         "Ce n'est pas un conseil en investissement."
     )
 
-    if not GOLD.exists():
+    fichier = chemin_donnees()
+    if fichier is None:
         st.error(
             "Pas encore de données. Dans le terminal, depuis la racine du dépôt : "
             "python run_pipeline.py MSFT AAPL GOOGL, puis python -m transform.silver, "
@@ -82,7 +83,7 @@ def main():
         )
         st.stop()
 
-    gold = pd.read_csv(GOLD)
+    gold = pd.read_csv(fichier)
     entreprise = st.selectbox("Entreprise", sorted(gold["entreprise"].unique()))
     df = tableau_entreprise(gold, entreprise)
 
