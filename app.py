@@ -88,7 +88,8 @@ def main():
     df = tableau_entreprise(gold, entreprise)
 
     st.subheader("Indicateurs par exercice")
-    affichage = df.set_index("annee").round(2).fillna("—")  # deux décimales, sans « None »
+    # Les nombres restent numériques ; seul l'affichage arrondit et remplace les vides par un tiret.
+    affichage = df.set_index("annee").style.format(precision=2, na_rep="—")
     st.dataframe(affichage, width="stretch")
 
     col1, col2 = st.columns(2)
