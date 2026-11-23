@@ -77,3 +77,18 @@ def test_les_montants_sont_affiches_en_milliards(base):
     assert formater("chiffre_affaires", 1.2e11) == "120.0 Md$"
     assert formater("marge_nette", 0.3) == "30.0%"
     assert formater("current_ratio", 1.35) == "1.35"
+
+
+def test_un_nom_approche_est_reconnu(tmp_path):
+    from assistant.requetes import trouver_entreprise
+
+    chemin = tmp_path / "finsight.db"
+    df = pd.DataFrame({"entreprise": ["Apple Inc.", "Alphabet Inc.", "MICROSOFT CORP"], "annee": [2024] * 3, "roe": [1.0, 0.2, 0.3]})
+    with sqlite3.connect(chemin) as connexion:
+        df.to_sql("gold_indicateurs", connexion, index=False)
+
+    assert trouver_entreprise("apple", chemin) == "Apple Inc."
+    assert trouver_entreprise("Microsoft", chemin) == "MICROSOFT CORP"
+    assert trouver_entreprise("google", chemin) == "Alphabet Inc."  # alias
+    with pytest.raises(RequeteRefusee):
+        trouver_entreprise("Tesla", chemin)

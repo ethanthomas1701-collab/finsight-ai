@@ -48,27 +48,56 @@ def verifier_indicateur(indicateur):
         raise RequeteRefusee(f"Indicateur non autorisé : {indicateur!r}")
 
 
+# Noms courants -> fragment reconnu dans la base (« Google » désigne Alphabet).
+ALIAS = {"google": "alphabet"}
+
+
+def entreprises_connues(base=BASE):
+    """Liste des noms d'entreprises présents dans la base."""
+    with closing(connexion_lecture(base)) as connexion:
+        lignes = connexion.execute(f"SELECT DISTINCT entreprise FROM {TABLE} ORDER BY entreprise")
+        return [ligne[0] for ligne in lignes.fetchall()]
+
+
+def trouver_entreprise(nom, base=BASE):
+    """Retrouve le nom exact en base à partir d'un nom approché (casse, alias, mot isolé).
+
+    Refuse si le nom est ambigu ou inconnu, en listant les noms possibles.
+    """
+    connus = entreprises_connues(base)
+    demande = ALIAS.get(nom.strip().casefold(), nom.strip().casefold())
+    exacts = [e for e in connus if e.casefold() == demande]
+    if exacts:
+        return exacts[0]
+    proches = [e for e in connus if demande in e.casefold()]
+    if len(proches) == 1:
+        return proches[0]
+    if not proches:
+        raise RequeteRefusee(f"Entreprise inconnue : {nom!r}. Noms disponibles : {', '.join(connus)}")
+    raise RequeteRefusee(f"Nom ambigu : {nom!r}. Précisez parmi : {', '.join(proches)}")
+
+
 def evolution(entreprise, indicateur, base=BASE):
     """Valeurs d'un indicateur, par exercice, pour une entreprise (requête fixe, paramétrée)."""
     verifier_indicateur(indicateur)
+    nom = trouver_entreprise(entreprise, base)
     sql = f"SELECT annee, {indicateur} FROM {TABLE} WHERE entreprise = ? ORDER BY annee"
     with closing(connexion_lecture(base)) as connexion:
-        df = pd.read_sql(sql, connexion, params=(entreprise,))
-    if df.empty:
-        raise RequeteRefusee(f"Entreprise inconnue : {entreprise!r}")
+        df = pd.read_sql(sql, connexion, params=(nom,))
     return df
 
 
 def comparer(entreprises, indicateur, annee, base=BASE):
     """Valeur d'un indicateur pour plusieurs entreprises, une année donnée."""
     verifier_indicateur(indicateur)
-    marques = ", ".join("?" for _ in entreprises)
+    noms = [trouver_entreprise(e, base) for e in entreprises]
+    marques = ", ".join("?" for _ in noms)
     sql = (
         f"SELECT entreprise, {indicateur} FROM {TABLE} "
         f"WHERE annee = ? AND entreprise IN ({marques}) ORDER BY entreprise"
     )
     with closing(connexion_lecture(base)) as connexion:
-        return pd.read_sql(sql, connexion, params=(annee, *entreprises))
+        return pd.read_sql(sql, connexion, params=(annee, *noms))
 
 
 MONTANTS = {"chiffre_affaires", "resultat_net", "total_actif", "total_passif", "free_cash_flow"}

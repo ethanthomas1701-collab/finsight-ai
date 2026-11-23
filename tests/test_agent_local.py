@@ -87,3 +87,33 @@ def test_un_indicateur_invente_par_le_modele_est_refuse(base):
 
     repondre_local("?", appel=faux_appel, base=base)
     assert messages_vus[1][-1]["content"].startswith("Requête refusée")
+
+
+def test_reponse_vide_rend_les_donnees_obtenues(base):
+    etapes = iter(
+        [
+            {"role": "assistant", "content": "", "tool_calls": [{"function": {"name": "evolution", "arguments": {"entreprise": "A CORP", "indicateur": "marge_nette"}}}]},
+            {"role": "assistant", "content": ""},
+        ]
+    )
+
+    def faux_appel(messages, modele):
+        return next(etapes)
+
+    resultat = repondre_local("?", appel=faux_appel, base=base)
+    assert "Données obtenues" in resultat
+    assert "2025" in resultat
+
+
+def test_repli_sans_modele_quand_le_modele_ne_repond_pas(base):
+    from assistant.agent_local import deviner_requete
+
+    assert deviner_requete("Le free cash flow a-t-il augmenté ?", base) is None  # aucune entreprise nommée
+    assert deviner_requete("Marge nette de a corp ?", base) == ("A CORP", "marge_nette")
+
+    def faux_appel(messages, modele):
+        return {"role": "assistant", "content": ""}
+
+    resultat = repondre_local("Marge nette de a corp ?", appel=faux_appel, base=base)
+    assert "marge_nette" in resultat
+    assert "2025" in resultat
