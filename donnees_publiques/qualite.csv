@@ -1,7 +1,50 @@
 entreprise,annee,controle,detail
 "AMAZON.COM, INC.",2007,donnee_manquante,"total_actif, total_passif"
+Accor,2020,donnee_manquante,chiffre_affaires
+Accor,2021,donnee_manquante,chiffre_affaires
+Accor,2022,donnee_manquante,chiffre_affaires
+Accor,2023,donnee_manquante,chiffre_affaires
+Accor,2024,donnee_manquante,chiffre_affaires
+Accor,2025,donnee_manquante,chiffre_affaires
+Air Liquide,2020,donnee_manquante,chiffre_affaires
+Air Liquide,2021,donnee_manquante,chiffre_affaires
+Air Liquide,2022,donnee_manquante,chiffre_affaires
+Air Liquide,2023,donnee_manquante,chiffre_affaires
+Air Liquide,2024,donnee_manquante,chiffre_affaires
+Air Liquide,2025,donnee_manquante,chiffre_affaires
 Alphabet Inc.,2013,donnee_manquante,"total_actif, total_passif"
 Apple Inc.,2007,donnee_manquante,"total_actif, total_passif"
+BNP Paribas,2020,donnee_manquante,chiffre_affaires
+BNP Paribas,2021,donnee_manquante,chiffre_affaires
+BNP Paribas,2022,donnee_manquante,chiffre_affaires
+BNP Paribas,2023,donnee_manquante,chiffre_affaires
+BNP Paribas,2024,donnee_manquante,chiffre_affaires
+BNP Paribas,2025,donnee_manquante,chiffre_affaires
+Bouygues,2020,donnee_manquante,chiffre_affaires
+Bouygues,2021,donnee_manquante,chiffre_affaires
+Bouygues,2022,donnee_manquante,chiffre_affaires
+Bouygues,2023,donnee_manquante,chiffre_affaires
+Bouygues,2024,donnee_manquante,chiffre_affaires
+Bouygues,2025,donnee_manquante,chiffre_affaires
+Bureau Veritas,2021,donnee_manquante,chiffre_affaires
+Bureau Veritas,2022,donnee_manquante,chiffre_affaires
+Crédit Agricole,2019,donnee_manquante,chiffre_affaires
+Crédit Agricole,2020,donnee_manquante,chiffre_affaires
+Crédit Agricole,2021,donnee_manquante,chiffre_affaires
+Crédit Agricole,2022,donnee_manquante,chiffre_affaires
+Crédit Agricole,2023,donnee_manquante,chiffre_affaires
+Crédit Agricole,2024,donnee_manquante,chiffre_affaires
+Crédit Agricole,2025,donnee_manquante,chiffre_affaires
+Dassault Systèmes,2022,donnee_manquante,chiffre_affaires
+Dassault Systèmes,2023,donnee_manquante,chiffre_affaires
+Dassault Systèmes,2024,donnee_manquante,chiffre_affaires
+Dassault Systèmes,2025,donnee_manquante,chiffre_affaires
+Kering,2020,donnee_manquante,chiffre_affaires
+Kering,2021,donnee_manquante,chiffre_affaires
+Kering,2022,donnee_manquante,chiffre_affaires
+Kering,2023,donnee_manquante,chiffre_affaires
+Kering,2024,donnee_manquante,chiffre_affaires
+Kering,2025,donnee_manquante,chiffre_affaires
 MICROSOFT CORP,2008,donnee_manquante,"total_actif, total_passif"
 "Meta Platforms, Inc.",2010,donnee_manquante,"total_actif, total_passif"
 "Meta Platforms, Inc.",2012,current_ratio_extreme,current ratio 10.71
@@ -9,6 +52,75 @@ MICROSOFT CORP,2008,donnee_manquante,"total_actif, total_passif"
 "Meta Platforms, Inc.",2015,current_ratio_extreme,current ratio 11.25
 "Meta Platforms, Inc.",2016,current_ratio_extreme,current ratio 11.97
 "Meta Platforms, Inc.",2017,current_ratio_extreme,current ratio 12.92
+Michelin,2021,donnee_manquante,chiffre_affaires
+Michelin,2022,donnee_manquante,chiffre_affaires
+Michelin,2023,donnee_manquante,chiffre_affaires
+Michelin,2024,donnee_manquante,chiffre_affaires
+Michelin,2025,donnee_manquante,chiffre_affaires
 NVIDIA CORP,2008,donnee_manquante,"total_actif, total_passif"
 NVIDIA CORP,2024,croissance_aberrante,CA +126%
 NVIDIA CORP,2025,croissance_aberrante,CA +114%
+Pernod Ricard,2020,donnee_manquante,chiffre_affaires
+Pernod Ricard,2021,donnee_manquante,chiffre_affaires
+Pernod Ricard,2022,donnee_manquante,chiffre_affaires
+Pernod Ricard,2023,donnee_manquante,chiffre_affaires
+Pernod Ricard,2024,donnee_manquante,chiffre_affaires
+Pernod Ricard,2025,donnee_manquante,chiffre_affaires
+Pernod Ricard,2026,donnee_manquante,chiffre_affaires
+Publicis Groupe,2022,donnee_manquante,chiffre_affaires
+Publicis Groupe,2023,donnee_manquante,chiffre_affaires
+Publicis Groupe,2024,donnee_manquante,chiffre_affaires
+Publicis Groupe,2025,donnee_manquante,chiffre_affaires
+Saint-Gobain,2020,donnee_manquante,chiffre_affaires
+Saint-Gobain,2021,donnee_manquante,chiffre_affaires
+Saint-Gobain,2022,donnee_manquante,chiffre_affaires
+Saint-Gobain,2023,donnee_manquante,chiffre_affaires
+Saint-Gobain,2024,donnee_manquante,chiffre_affaires
+Saint-Gobain,2025,donnee_manquante,chiffre_affaires
+Sanofi,2018,donnee_manquante,chiffre_affaires
+Sanofi,2019,donnee_manquante,chiffre_affaires
+Sanofi,2020,donnee_manquante,chiffre_affaires
+Sanofi,2021,donnee_manquante,chiffre_affaires
+Sanofi,2022,donnee_manquante,chiffre_affaires
+Sanofi,2023,donnee_manquante,chiffre_affaires
+Sanofi,2024,donnee_manquante,chiffre_affaires
+Sanofi,2025,donnee_manquante,chiffre_affaires
+Schneider Electric,2021,donnee_manquante,chiffre_affaires
+Schneider Electric,2022,donnee_manquante,chiffre_affaires
+Schneider Electric,2023,donnee_manquante,chiffre_affaires
+Schneider Electric,2024,donnee_manquante,chiffre_affaires
+Schneider Electric,2025,donnee_manquante,chiffre_affaires
+Société Générale,2020,donnee_manquante,chiffre_affaires
+Société Générale,2021,donnee_manquante,chiffre_affaires
+Société Générale,2022,donnee_manquante,chiffre_affaires
+Société Générale,2023,donnee_manquante,chiffre_affaires
+Société Générale,2024,donnee_manquante,chiffre_affaires
+Société Générale,2025,donnee_manquante,chiffre_affaires
+Thales,2020,donnee_manquante,chiffre_affaires
+Thales,2021,donnee_manquante,chiffre_affaires
+Thales,2022,donnee_manquante,chiffre_affaires
+Thales,2023,donnee_manquante,chiffre_affaires
+Thales,2024,donnee_manquante,chiffre_affaires
+TotalEnergies,2020,donnee_manquante,chiffre_affaires
+TotalEnergies,2021,donnee_manquante,chiffre_affaires
+TotalEnergies,2022,donnee_manquante,chiffre_affaires
+TotalEnergies,2023,donnee_manquante,chiffre_affaires
+TotalEnergies,2024,donnee_manquante,chiffre_affaires
+TotalEnergies,2025,donnee_manquante,chiffre_affaires
+Unibail-Rodamco-Westfield,2019,donnee_manquante,chiffre_affaires
+Unibail-Rodamco-Westfield,2020,donnee_manquante,chiffre_affaires
+Unibail-Rodamco-Westfield,2021,donnee_manquante,chiffre_affaires
+Unibail-Rodamco-Westfield,2022,donnee_manquante,chiffre_affaires
+Unibail-Rodamco-Westfield,2023,donnee_manquante,chiffre_affaires
+Unibail-Rodamco-Westfield,2024,donnee_manquante,chiffre_affaires
+Unibail-Rodamco-Westfield,2025,donnee_manquante,chiffre_affaires
+Veolia Environnement,2021,donnee_manquante,chiffre_affaires
+Veolia Environnement,2022,donnee_manquante,chiffre_affaires
+Veolia Environnement,2023,donnee_manquante,chiffre_affaires
+Veolia Environnement,2024,donnee_manquante,chiffre_affaires
+Veolia Environnement,2025,donnee_manquante,chiffre_affaires
+Vinci,2021,donnee_manquante,chiffre_affaires
+Vinci,2022,donnee_manquante,chiffre_affaires
+Vinci,2023,donnee_manquante,chiffre_affaires
+Vinci,2024,donnee_manquante,chiffre_affaires
+Vinci,2025,donnee_manquante,chiffre_affaires

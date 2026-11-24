@@ -5,7 +5,7 @@ Lancement (depuis la racine du dépôt, environnement finsight actif) :
 
 Les données viennent de data/gold/indicateurs.csv (produit par transform.gold). Si ce fichier
 n'existe pas (par exemple sur le site publié), l'application lit la copie publique dans
-donnees_publiques/indicateurs.csv.
+donnees_publiques/indicateurs.csv. Les taux de change viennent de donnees_publiques/taux_change.csv.
 Projet pédagogique : ces indicateurs ne constituent pas un conseil en investissement.
 """
 
@@ -15,6 +15,8 @@ from pathlib import Path
 import altair as alt
 import pandas as pd
 import streamlit as st
+
+from transform.devises import CHEMIN_TAUX, DEVISES, SYMBOLES, charger_taux, convertir_tableau
 
 GOLD = Path("data/gold/indicateurs.csv")
 GOLD_PUBLIC = Path("donnees_publiques/indicateurs.csv")
@@ -44,21 +46,26 @@ def chemin_donnees():
     return None
 
 
-# Colonnes du tableau gold -> libellés affichés.
-LIBELLES = {
-    "chiffre_affaires": "Chiffre d'affaires (Md$)",
-    "resultat_net": "Résultat net (Md$)",
-    "total_actif": "Total actif (Md$)",
-    "total_passif": "Total passif (Md$)",
-    "free_cash_flow": "Free cash flow (Md$)",
-    "marge_nette": "Marge nette (%)",
-    "roe": "ROE (%)",
-    "roa": "ROA (%)",
-    # Le calcul est total passif / capitaux propres : le libellé le dit tel quel.
-    "dette_sur_capitaux_propres": "Passif / capitaux propres (x)",
-    "current_ratio": "Current ratio (x)",
-    "croissance_ca": "Croissance du CA (%)",
-}
+def libelles(symbole):
+    """Libellés des colonnes, avec le symbole de la devise dans les montants (Md$ ou Md€)."""
+    return {
+        "chiffre_affaires": f"Chiffre d'affaires (Md{symbole})",
+        "resultat_net": f"Résultat net (Md{symbole})",
+        "total_actif": f"Total actif (Md{symbole})",
+        "total_passif": f"Total passif (Md{symbole})",
+        "free_cash_flow": f"Free cash flow (Md{symbole})",
+        "marge_nette": "Marge nette (%)",
+        "roe": "ROE (%)",
+        "roa": "ROA (%)",
+        # Le calcul est total passif / capitaux propres : le libellé le dit tel quel.
+        "dette_sur_capitaux_propres": "Passif / capitaux propres (x)",
+        "current_ratio": "Current ratio (x)",
+        "croissance_ca": "Croissance du CA (%)",
+    }
+
+
+# Libellés en dollars, pour les appels qui ne précisent pas de devise.
+LIBELLES = libelles("$")
 EN_MILLIARDS = ["chiffre_affaires", "resultat_net", "total_actif", "total_passif", "free_cash_flow"]
 EN_POURCENTS = ["marge_nette", "roe", "roa", "croissance_ca"]
 
@@ -74,25 +81,33 @@ DEFINITIONS = [
 ]
 
 
-def tableau_entreprise(gold, entreprise):
-    """Renvoie les indicateurs d'une entreprise, par exercice, avec unités lisibles."""
+def tableau_entreprise(gold, entreprise, devise="USD", taux=None):
+    """Indicateurs d'une entreprise, par exercice, en milliards et en pourcentages, dans la devise demandée.
+
+    Les montants sont convertis depuis la devise d'origine de la société (colonne 'devise' ; USD si absente).
+    """
     df = gold[gold["entreprise"] == entreprise].sort_values("annee").copy()
+    if "devise" not in df.columns:
+        df["devise"] = "USD"
+    if (df["devise"] != devise).any():
+        df = convertir_tableau(df, devise, taux if taux is not None else charger_taux())
     for colonne in EN_MILLIARDS:
         df[colonne] = df[colonne] / MILLIARD
     for colonne in EN_POURCENTS:
         df[colonne] = df[colonne] * 100
-    return df[["annee", *LIBELLES]].rename(columns=LIBELLES).reset_index(drop=True)
+    renommage = libelles(SYMBOLES[devise])
+    return df[["annee", *renommage]].rename(columns=renommage).reset_index(drop=True)
 
 
-def tableau_entreprise_brute(gold, entreprises):
+def tableau_entreprise_brute(gold, entreprises, devise="USD", taux=None):
     """Lignes de plusieurs entreprises avec les unités d'affichage, sans les filtrer une à une."""
-    morceaux = [tableau_entreprise(gold, nom).assign(entreprise=nom) for nom in entreprises]
+    morceaux = [tableau_entreprise(gold, nom, devise, taux).assign(entreprise=nom) for nom in entreprises]
     return pd.concat(morceaux, ignore_index=True)
 
 
-def comparer(gold, entreprises, indicateur):
+def comparer(gold, entreprises, indicateur, devise="USD", taux=None):
     """Tableau années x entreprises pour comparer un indicateur (unités d'affichage)."""
-    df = tableau_entreprise_brute(gold, entreprises)
+    df = tableau_entreprise_brute(gold, entreprises, devise, taux)
     return df.pivot(index="annee", columns="entreprise", values=indicateur).sort_index()
 
 
@@ -189,9 +204,9 @@ def graphique_barres(df, colonne, unite, couleur, sombre=False):
     return habiller(barres.properties(height=320), sombre)
 
 
-def graphique_comparaison(gold, entreprises, indicateur, couleurs, sombre=False):
+def graphique_comparaison(gold, entreprises, indicateur, couleurs, sombre=False, devise="USD", taux=None):
     """Plusieurs entreprises ; cliquer une entreprise dans la légende isole sa courbe."""
-    df = comparer(gold, entreprises, indicateur).reset_index().melt(
+    df = comparer(gold, entreprises, indicateur, devise, taux).reset_index().melt(
         id_vars="annee", var_name="entreprise", value_name="valeur"
     ).dropna(subset=["valeur"])
     selection = alt.selection_point(fields=["entreprise"], bind="legend")
@@ -212,9 +227,11 @@ def graphique_comparaison(gold, entreprises, indicateur, couleurs, sombre=False)
     return habiller(graphique.properties(height=360), sombre)
 
 
-def carte_kpi(titre, valeur, variation, unite, couleur, sombre=False):
+def carte_kpi(titre, valeur, variation, unite, couleur, sombre=False, manquant=False):
     """Carte d'indicateur : valeur, variation avec icône et libellé (jamais la couleur seule)."""
-    if variation is None:
+    if manquant:
+        delta = '<span class="delta neutre">Donnée non disponible</span>'
+    elif variation is None:
         delta = '<span class="delta neutre">Pas d\'exercice précédent</span>'
     elif variation >= 0:
         delta = f'<span class="delta hausse">▲ hausse de {html.escape(formater(variation))} {html.escape(unite)}</span>'
@@ -277,6 +294,12 @@ def style_sombre(m):
 """
 
 
+@st.cache_data
+def taux_de_change():
+    """Taux moyens annuels EUR/USD (lus une seule fois par session)."""
+    return charger_taux(CHEMIN_TAUX)
+
+
 def main():
     st.set_page_config(page_title="FinSight AI", layout="wide")
     st.markdown(STYLE, unsafe_allow_html=True)
@@ -291,10 +314,12 @@ def main():
         st.stop()
 
     gold = pd.read_csv(fichier)
+    if "devise" not in gold.columns:
+        gold["devise"] = "USD"
     entreprises = sorted(gold["entreprise"].unique())
 
-    # Filtres et mode d'affichage : une seule rangée, au-dessus de tout le contenu.
-    col_entreprise, col_periode, col_tableau, col_sombre = st.columns([2.2, 2.8, 1.6, 1.4])
+    # Filtres et affichage : une seule rangée, au-dessus de tout le contenu.
+    col_entreprise, col_periode, col_devise, col_tableau, col_sombre = st.columns([2.2, 2.6, 1.1, 1.5, 1.4])
     with col_entreprise:
         entreprise = st.selectbox("Entreprise", entreprises)
     annees = sorted(gold.loc[gold["entreprise"] == entreprise, "annee"].unique())
@@ -304,6 +329,8 @@ def main():
         else:
             lo = hi = annees[0]
             st.caption(f"Un seul exercice disponible : {annees[0]}")
+    with col_devise:
+        devise = st.selectbox("Devise", list(DEVISES), format_func=lambda d: f"{d} ({SYMBOLES[d]})")
     with col_tableau:
         afficher_tableau = st.toggle("Voir le tableau", value=False)
     with col_sombre:
@@ -312,6 +339,9 @@ def main():
     m = MODES[sombre]
     couleurs = couleurs_entreprises(gold, sombre)
     pal = m["palette"]
+    sym = SYMBOLES[devise]
+    L = libelles(sym)
+    taux = taux_de_change()
     if sombre:
         st.markdown(style_sombre(m), unsafe_allow_html=True)
     st.markdown(
@@ -319,80 +349,91 @@ def main():
         <div class="entete">
           <h1>FinSight AI</h1>
           <p>Les indicateurs financiers annuels d'une entreprise, calculés à partir de ses rapports
-          officiels déposés à la SEC. Projet pédagogique : ce n'est pas un conseil en investissement.</p>
+          officiels (SEC pour les États-Unis, AMF pour la France). Projet pédagogique : ce n'est pas un conseil en investissement.</p>
           <div class="chips">
-            <span class="chip">Source : SEC EDGAR</span>
-            <span class="chip">Rapports annuels 10-K</span>
-            <span class="chip">6 entreprises</span>
+            <span class="chip">Sources : SEC EDGAR et AMF (ESEF)</span>
+            <span class="chip">Rapports annuels 10-K et ESEF</span>
+            <span class="chip">Montants en {devise} (taux moyens BCE)</span>
           </div>
         </div>
-        """,
+        """.replace("{devise}", devise),
         unsafe_allow_html=True,
     )
 
     periode = gold[(gold["annee"] >= lo) & (gold["annee"] <= hi)]
-    df = tableau_entreprise(periode, entreprise)
+    df = tableau_entreprise(periode, entreprise, devise, taux)
     if df.empty:
         st.info("Aucun exercice disponible pour cette entreprise sur cette période.")
         st.stop()
 
+    origine = gold.loc[gold["entreprise"] == entreprise, "devise"].iloc[0]
     derniere = df.iloc[-1]
     precedente = df.iloc[-2] if len(df) > 1 else None
     st.subheader(f"{entreprise} · exercice {int(derniere['annee'])}")
-    st.caption("Variation par rapport à l'exercice précédent")
+    if origine != devise:
+        st.caption(
+            f"Montants convertis de {origine} vers {devise} au taux moyen annuel de la BCE. "
+            "Les ratios ne changent pas avec la devise."
+        )
+    else:
+        st.caption("Variation par rapport à l'exercice précédent")
     cartes = [
-        ("Chiffre d'affaires", "Chiffre d'affaires (Md$)", "Md$", pal[0]),
-        ("Marge nette", "Marge nette (%)", "%", pal[1]),
-        ("ROE", "ROE (%)", "%", pal[2]),
-        ("Free cash flow", "Free cash flow (Md$)", "Md$", pal[3]),
+        ("Chiffre d'affaires", L["chiffre_affaires"], f"Md{sym}", pal[0]),
+        ("Marge nette", L["marge_nette"], "%", pal[1]),
+        ("ROE", L["roe"], "%", pal[2]),
+        ("Free cash flow", L["free_cash_flow"], f"Md{sym}", pal[3]),
     ]
     blocs = []
     for titre, cle, unite, couleur in cartes:
         variation = ecart(derniere[cle], precedente[cle] if precedente is not None else None)
         valeur = f"{formater(derniere[cle])} {unite}"
-        blocs.append(carte_kpi(titre, valeur, variation, unite, couleur, sombre))
+        blocs.append(carte_kpi(titre, valeur, variation, unite, couleur, sombre,
+                               manquant=pd.isna(derniere[cle])))
     st.markdown(f'<div class="cartes">{"".join(blocs)}</div>', unsafe_allow_html=True)
 
     onglet_croissance, onglet_rentabilite, onglet_tresorerie, onglet_solidite, onglet_comparer = st.tabs(
         ["Croissance", "Rentabilité", "Trésorerie", "Solidité", "Comparer"]
     )
     with onglet_croissance:
-        st.caption("Chiffre d'affaires et résultat net, en milliards de dollars. Survolez un exercice.")
+        st.caption(f"Chiffre d'affaires et résultat net, en milliards de {devise}. Survolez un exercice.")
         st.altair_chart(
-            graphique_lignes(df, ["Chiffre d'affaires (Md$)", "Résultat net (Md$)"], "Md$",
-                             {"Chiffre d'affaires (Md$)": pal[0], "Résultat net (Md$)": pal[1]}, sombre),
+            graphique_lignes(df, [L["chiffre_affaires"], L["resultat_net"]], f"Md{sym}",
+                             {L["chiffre_affaires"]: pal[0], L["resultat_net"]: pal[1]}, sombre),
             width="stretch",
         )
     with onglet_rentabilite:
         st.caption("Marge nette, ROE et ROA, en pourcentage.")
         st.altair_chart(
-            graphique_lignes(df, ["Marge nette (%)", "ROE (%)", "ROA (%)"], "%",
-                             {"Marge nette (%)": pal[0], "ROE (%)": pal[1], "ROA (%)": pal[2]}, sombre),
+            graphique_lignes(df, [L["marge_nette"], L["roe"], L["roa"]], "%",
+                             {L["marge_nette"]: pal[0], L["roe"]: pal[1], L["roa"]: pal[2]}, sombre),
             width="stretch",
         )
     with onglet_tresorerie:
-        st.caption("Free cash flow par exercice, en milliards de dollars.")
-        st.altair_chart(graphique_barres(df, "Free cash flow (Md$)", "Md$", couleurs[entreprise], sombre),
+        st.caption(f"Free cash flow par exercice, en milliards de {devise}. Vide pour les sociétés françaises (voir la documentation).")
+        st.altair_chart(graphique_barres(df, L["free_cash_flow"], f"Md{sym}", couleurs[entreprise], sombre),
                         width="stretch")
     with onglet_solidite:
         st.caption("Deux ratios distincts, chacun dans son propre graphique.")
         gauche, droite = st.columns(2)
         with gauche:
-            st.markdown("**Current ratio (x)**")
-            st.altair_chart(graphique_barres(df, "Current ratio (x)", "x", pal[2], sombre), width="stretch")
+            st.markdown(f"**{L['current_ratio']}**")
+            st.altair_chart(graphique_barres(df, L["current_ratio"], "x", pal[2], sombre), width="stretch")
         with droite:
-            st.markdown("**Passif / capitaux propres (x)**")
-            st.altair_chart(graphique_barres(df, "Passif / capitaux propres (x)", "x", pal[4], sombre),
+            st.markdown(f"**{L['dette_sur_capitaux_propres']}**")
+            st.altair_chart(graphique_barres(df, L["dette_sur_capitaux_propres"], "x", pal[4], sombre),
                             width="stretch")
     with onglet_comparer:
         choix = st.multiselect("Entreprises à comparer", entreprises, default=entreprises[:3])
         indicateur = st.selectbox(
             "Indicateur",
-            [LIBELLES[c] for c in ["chiffre_affaires", *EN_POURCENTS, "current_ratio"]],
+            [L[c] for c in ["chiffre_affaires", *EN_POURCENTS, "current_ratio"]],
         )
         st.caption("Cliquez sur un nom dans la légende pour isoler une entreprise.")
         if choix:
-            st.altair_chart(graphique_comparaison(periode, choix, indicateur, couleurs, sombre), width="stretch")
+            st.altair_chart(
+                graphique_comparaison(periode, choix, indicateur, couleurs, sombre, devise, taux),
+                width="stretch",
+            )
         else:
             st.info("Choisissez au moins une entreprise.")
 
@@ -403,7 +444,7 @@ def main():
             tableau = tableau.style.set_properties(**{"background-color": "#242422", "color": m["encre"]})
         st.dataframe(tableau, width="stretch")
         st.caption(
-            "Montants en milliards de dollars (Md$), taux en pourcentage, ratios sans unité (x). "
+            f"Montants en milliards de {devise} (Md{sym}), taux en pourcentage, ratios sans unité (x). "
             "Un tiret signale une donnée absente dans le rapport."
         )
 

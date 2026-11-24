@@ -25,10 +25,12 @@ logger = logging.getLogger(__name__)
 SILVER_DIR = Path("data/silver")
 COLONNES = ["cik", "entreprise", "annee", "date_fin", "chiffre_affaires", "resultat_net",
             "total_actif", "total_passif", "actif_courant", "passif_courant",
-            "flux_operationnel", "investissements"]
+            "flux_operationnel", "investissements", "devise"]
+DEVISE = "EUR"  # les rapports ESEF sont publiés en euros
 # Concepts IFRS à lire pour chaque colonne ; (concepts, est_un_flux)
 CORRESPONDANCE = {
-    "chiffre_affaires": (["Revenue"], True),
+    # Par ordre de priorité : Revenue (total), sinon le revenu des contrats clients (IFRS 15).
+    "chiffre_affaires": (["Revenue", "RevenueFromContractsWithCustomers"], True),
     "resultat_net": (["ProfitLossAttributableToOwnersOfParent"], True),
     "total_actif": (["Assets"], False),
     "actif_courant": (["CurrentAssets"], False),
@@ -38,8 +40,17 @@ CORRESPONDANCE = {
 
 
 def _serie(faits, concepts, est_un_flux):
+    """Valeur par date de fin. Si plusieurs concepts sont donnés, le premier disponible l'emporte."""
+    resultat = None
+    for concept in concepts:
+        serie = _serie_unique(faits, concept, est_un_flux)
+        resultat = serie if resultat is None else resultat.combine_first(serie)
+    return resultat if resultat is not None else pd.Series(dtype="float64")
+
+
+def _serie_unique(faits, concept, est_un_flux):
     """Valeur par date de fin, pour un concept IFRS. Les flux doivent couvrir un exercice complet."""
-    lignes = faits[faits["concept"].isin(concepts)].copy()
+    lignes = faits[faits["concept"] == concept].copy()
     if est_un_flux:
         duree = (pd.to_datetime(lignes["fin"]) - pd.to_datetime(lignes["debut"])).dt.days
         lignes = lignes[duree.between(350, 380)]
@@ -67,6 +78,7 @@ def construire_silver_esef(faits, isin, nom):
     tableau["date_fin"] = pd.to_datetime(tableau["date_fin"]).dt.date.astype(str)
     tableau["annee"] = pd.to_datetime(tableau["date_fin"]).dt.year
     tableau["investissements"] = float("nan")
+    tableau["devise"] = DEVISE
     tableau.insert(0, "entreprise", nom)
     tableau.insert(0, "cik", isin)
     return tableau[COLONNES].sort_values("annee").reset_index(drop=True)

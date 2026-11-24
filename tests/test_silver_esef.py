@@ -42,7 +42,8 @@ def test_format_identique_a_la_couche_us_et_flux_non_calcule():
     assert list(tableau.columns) == [
         "cik", "entreprise", "annee", "date_fin", "chiffre_affaires", "resultat_net",
         "total_actif", "total_passif", "actif_courant", "passif_courant",
-        "flux_operationnel", "investissements",
+        "flux_operationnel", "investissements", "devise",
     ]
     assert tableau["investissements"].isna().all()
+    assert (tableau["devise"] == "EUR").all()
     assert tableau.loc[0, "cik"] == "FR0000000000"

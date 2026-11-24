@@ -8,8 +8,10 @@ Chaîne :
 Les données sont brutes : aucune correspondance d'indicateurs ici (c'est le rôle de transform/).
 """
 
+import html
 import logging
 import re
+import time
 import zipfile
 from datetime import date
 from io import BytesIO
@@ -24,14 +26,30 @@ DELAI = 60  # secondes
 NOMBRE_MAX_DEPOTS = 100
 EXTENSIONS_ANNUELLES = (".zip", ".xbri")
 
-_RE_CONTEXTE = re.compile(r'<xbrli:context id="([^"]+)">(.*?)</xbrli:context>', re.S)
+# Les attributs peuvent être entre guillemets doubles ou simples selon l'éditeur du rapport.
+_RE_CONTEXTE = re.compile(r"<xbrli:context\s+id=([\"'])(.*?)\1\s*>(.*?)</xbrli:context>", re.S)
 _RE_FAIT = re.compile(r"<ix:nonFraction\b([^>]*)>(.*?)</ix:nonFraction>", re.S)
-_RE_ATTR = re.compile(r'([\w:.-]+)="([^"]*)"')
+_RE_ATTR = re.compile(r"([\w:.-]+)=([\"'])(.*?)\2")
 _RE_BALISE = re.compile(r"<[^>]+>")
 
 
 class EsefError(Exception):
     """Erreur de lecture d'un rapport ESEF ou de l'API de l'AMF."""
+
+
+def _get(url, **options):
+    """GET avec trois tentatives espacées, pour surmonter une coupure réseau passagère."""
+    derniere_erreur = None
+    for essai in range(1, 4):
+        try:
+            reponse = requests.get(url, timeout=DELAI, **options)
+            reponse.raise_for_status()
+            return reponse
+        except requests.RequestException as erreur:
+            derniere_erreur = erreur
+            logger.warning("essai %d échoué (%s), nouvel essai", essai, erreur)
+            time.sleep(10 * essai)
+    raise EsefError(f"réseau indisponible après 3 essais : {derniere_erreur}")
 
 
 def trouver_depots_annuels(isin):
@@ -43,16 +61,11 @@ def trouver_depots_annuels(isin):
         '(informationdeposee_inf_tit_inf like "%universel%" OR informationdeposee_inf_tit_inf like "%annuel%" '
         'OR informationdeposee_inf_tit_inf like "%universal%")'
     )
-    try:
-        reponse = requests.get(
-            API_DEPOTS,
-            params={"where": where, "limit": NOMBRE_MAX_DEPOTS, "order_by": "uin_dat_amf desc",
-                    "select": "uin_dat_amf,informationdeposee_inf_tit_inf,url_de_recuperation"},
-            timeout=DELAI,
-        )
-        reponse.raise_for_status()
-    except requests.RequestException as erreur:
-        raise EsefError(f"API AMF injoignable : {erreur}") from erreur
+    reponse = _get(
+        API_DEPOTS,
+        params={"where": where, "limit": NOMBRE_MAX_DEPOTS, "order_by": "uin_dat_amf desc",
+                "select": "uin_dat_amf,informationdeposee_inf_tit_inf,url_de_recuperation"},
+    )
 
     depots = []
     for enregistrement in reponse.json().get("results", []):
@@ -68,12 +81,7 @@ def trouver_depots_annuels(isin):
 
 def telecharger(url):
     """Télécharge un document et renvoie son contenu brut."""
-    try:
-        reponse = requests.get(url, timeout=DELAI)
-        reponse.raise_for_status()
-    except requests.RequestException as erreur:
-        raise EsefError(f"téléchargement impossible : {url} ({erreur})") from erreur
-    return reponse.content
+    return _get(url).content
 
 
 def rapport_xhtml(contenu_archive):
@@ -97,7 +105,7 @@ def lire_contextes(texte):
     Une dimension (segment, zone géographique, activité...) signale un détail, pas le total consolidé.
     """
     contextes = {}
-    for identifiant, corps in _RE_CONTEXTE.findall(texte):
+    for _guillemet, identifiant, corps in _RE_CONTEXTE.findall(texte):
         debut = re.search(r"<xbrli:startDate>([^<]+)</xbrli:startDate>", corps)
         fin = re.search(r"<xbrli:endDate>([^<]+)</xbrli:endDate>", corps)
         instant = re.search(r"<xbrli:instant>([^<]+)</xbrli:instant>", corps)
@@ -111,7 +119,7 @@ def lire_contextes(texte):
 
 def valeur_numerique(attributs, texte):
     """Convertit le texte balisé en nombre, en tenant compte du format, de l'échelle et du signe."""
-    brut = _RE_BALISE.sub("", texte).strip()
+    brut = html.unescape(_RE_BALISE.sub("", texte)).strip()  # &#xa0; -> espace insécable
     if attributs.get("format", "").endswith("zero") or brut in ("-", "—", ""):
         valeur = 0.0
     else:
@@ -134,7 +142,7 @@ def extraire_faits(texte, prefixe="ifrs-full"):
     contextes = lire_contextes(texte)
     lignes = []
     for attributs_brut, corps in _RE_FAIT.findall(texte):
-        attributs = dict(_RE_ATTR.findall(attributs_brut))
+        attributs = {nom: valeur for nom, _guillemet, valeur in _RE_ATTR.findall(attributs_brut)}
         concept = attributs.get("name", "")
         if not concept.startswith(prefixe + ":"):
             continue
@@ -169,6 +177,9 @@ def extraire_societe(isin, nombre_max=None):
             faits = extraire_faits(texte)
         except EsefError as erreur:
             logger.warning("dépôt ignoré (%s) : %s", depot["url"], erreur)
+            continue
+        if faits.empty:
+            logger.warning("aucun fait IFRS lisible dans %s", depot["url"])
             continue
         faits["depot"] = depot["url"].rsplit("/", 1)[-1]
         morceaux.append(faits)

@@ -53,7 +53,12 @@ def construire_gold(dossier_silver=SILVER_DIR, dossier_gold=GOLD_DIR):
     fichiers = sorted(Path(dossier_silver).glob("CIK*.csv"))
     if not fichiers:
         raise FileNotFoundError(f"Aucun CSV silver dans {dossier_silver}. Lancer transform.silver.")
-    tableaux = [calculer_indicateurs(pd.read_csv(f)) for f in fichiers]
+    tableaux = []
+    for f in fichiers:
+        silver = pd.read_csv(f)
+        if "devise" not in silver.columns:  # sociétés américaines (SEC) : montants en dollars
+            silver["devise"] = "USD"
+        tableaux.append(calculer_indicateurs(silver))
     gold = pd.concat(tableaux, ignore_index=True)
 
     dossier_gold = Path(dossier_gold)

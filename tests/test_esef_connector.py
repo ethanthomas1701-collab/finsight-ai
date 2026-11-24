@@ -53,6 +53,22 @@ def test_applique_le_signe_et_ignore_les_balises_internes():
     assert valeur_numerique(attributs, "12<span> 958</span>") == pytest.approx(-12_958e6)
 
 
+def test_lit_les_attributs_entre_apostrophes():
+    texte = (
+        "<xbrli:context id='c1'><xbrli:period><xbrli:startDate>2024-01-01</xbrli:startDate>"
+        "<xbrli:endDate>2024-12-31</xbrli:endDate></xbrli:period></xbrli:context>"
+        "<ix:nonFraction id='t1' name='ifrs-full:Revenue' contextRef='c1' unitRef='u' decimals='-5' "
+        "format='ixt:num-comma-decimal' scale='6'>12 500</ix:nonFraction>"
+    )
+    faits = extraire_faits(texte)
+    assert faits.loc[0, "concept"] == "Revenue"
+    assert faits.loc[0, "valeur"] == pytest.approx(12_500e6)
+
+
+def test_decode_les_entites_html_des_espaces():
+    assert valeur_numerique({"format": "ixt:num-comma-decimal", "scale": "6"}, "1&#xa0;237") == pytest.approx(1_237e6)
+
+
 def test_format_zero_donne_zero():
     assert valeur_numerique({"format": "ixt:fixed-zero", "scale": "6"}, "-") == 0.0
 
