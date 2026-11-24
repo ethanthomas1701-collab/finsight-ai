@@ -10,6 +10,7 @@ Projet pédagogique : ces indicateurs ne constituent pas un conseil en investiss
 """
 
 import html
+import re
 from pathlib import Path
 
 import altair as alt
@@ -150,13 +151,30 @@ def habiller(graphique, sombre=False):
     return (
         graphique.configure(background=m["fond"] if sombre else "white")
         .configure_view(stroke=None, fill=m["fond"] if sombre else None)
-        .configure_axis(
-            labelColor=m["encre_secondaire"], titleColor=m["encre_secondaire"], gridColor=m["grille"],
-            domainColor=m["axe"], tickColor=m["axe"], labelFont="sans-serif", titleFont="sans-serif",
+        # Axe horizontal : pas de trait ni de graduation, pas de grille verticale.
+        .configure_axisX(
+            domain=False, ticks=False, grid=False, labelPadding=10,
+            labelColor=m["encre_secondaire"], titleColor=m["encre_secondaire"], labelFont="sans-serif",
+        )
+        # Axe vertical : grille horizontale très discrète, sans trait d'axe.
+        .configure_axisY(
+            domain=False, ticks=False, grid=True, gridColor=m["grille"], gridOpacity=0.5,
+            labelPadding=10, labelColor=m["encre_secondaire"], titleColor=m["encre_secondaire"],
+            labelFont="sans-serif",
         )
         .configure_legend(labelColor=m["encre_secondaire"], titleColor=m["encre_secondaire"], labelFont="sans-serif")
         .configure_mark(color=m["palette"][0])
     )
+
+
+def libelle_court(libelle):
+    """« Chiffre d'affaires (Md$) » -> « Chiffre d'affaires » : l'unité est dans le sous-titre."""
+    return re.sub(r"\s*\((?:Md\S*|%|x)\)\s*$", "", libelle)
+
+
+def axe_annees():
+    """Une étiquette d'année sur trois, pour ne pas surcharger l'axe horizontal."""
+    return alt.Axis(labelAngle=0, title=None, labelExpr="toNumber(datum.label) % 3 == 0 ? datum.label : ''")
 
 
 def graphique_lignes(df, colonnes, unite, couleurs, sombre=False):
@@ -170,13 +188,22 @@ def graphique_lignes(df, colonnes, unite, couleurs, sombre=False):
     long = long.dropna(subset=["valeur"])
     echelle = alt.Scale(domain=colonnes, range=[couleurs[c] for c in colonnes])
     survol = alt.selection_point(fields=["annee"], on="pointerover", nearest=True, empty=False, clear="pointerout")
+    # Pas de légende : chaque courbe porte son nom à sa dernière valeur.
+    long["libelle"] = long["indicateur"].map(libelle_court)
     base = alt.Chart(long).encode(
-        x=alt.X("annee:O", title=None, axis=alt.Axis(labelAngle=0)),
-        y=alt.Y("valeur:Q", title=unite),
-        color=alt.Color("indicateur:N", scale=echelle, legend=alt.Legend(orient="top", title=None)),
+        x=alt.X("annee:O", axis=axe_annees()),
+        y=alt.Y("valeur:Q", title=None, axis=alt.Axis(format=",.0f")),
+        color=alt.Color("indicateur:N", scale=echelle, legend=None),
     )
-    lignes = base.mark_line(strokeWidth=2.5)
-    points = base.mark_circle(size=90).encode(opacity=alt.condition(survol, alt.value(1), alt.value(0)))
+    lignes = base.mark_line(strokeWidth=2.2)
+    points = base.mark_circle(size=70).encode(opacity=alt.condition(survol, alt.value(1), alt.value(0)))
+    derniers = long.sort_values("annee").groupby("indicateur", as_index=False).tail(1)
+    etiquettes = (
+        alt.Chart(derniers)
+        .mark_text(align="left", dx=10, fontWeight=600, fontSize=13)
+        .encode(x=alt.X("annee:O"), y=alt.Y("valeur:Q"), text="libelle:N",
+                color=alt.Color("indicateur:N", scale=echelle, legend=None))
+    )
     repere = (
         alt.Chart(long).mark_rule(strokeWidth=1, color=GRIS_DISCRET)
         .encode(x="annee:O", opacity=alt.condition(survol, alt.value(0.8), alt.value(0)))
@@ -187,20 +214,21 @@ def graphique_lignes(df, colonnes, unite, couleurs, sombre=False):
         alt.Tooltip(field=noms_sur[c], type="quantitative", title=c, format=",.1f") for c in colonnes
     ]
     bande = alt.Chart(d).mark_bar(opacity=0).encode(x=alt.X("annee:O"), tooltip=info)
-    couche = alt.layer(lignes, points, repere, bande).add_params(survol)
-    return habiller(couche.properties(height=320), sombre)
+    couche = alt.layer(lignes, points, repere, etiquettes, bande).add_params(survol)
+    # Marge à droite pour que les étiquettes de fin de courbe tiennent dans le cadre.
+    return habiller(couche.properties(height=320, padding={"left": 8, "right": 170, "top": 8, "bottom": 8}), sombre)
 
 
 def graphique_barres(df, colonne, unite, couleur, sombre=False):
     """Barres par exercice, info-bulle au survol, extrémités arrondies."""
     d = df[["annee", colonne]].rename(columns={colonne: "valeur"})
     base = alt.Chart(d).encode(
-        x=alt.X("annee:O", title=None, axis=alt.Axis(labelAngle=0)),
-        y=alt.Y("valeur:Q", title=unite),
+        x=alt.X("annee:O", axis=axe_annees()),
+        y=alt.Y("valeur:Q", title=None, axis=alt.Axis(format=",.1f")),
         tooltip=[alt.Tooltip("annee:O", title="Exercice"),
                  alt.Tooltip("valeur:Q", title=unite, format=",.1f")],
     )
-    barres = base.mark_bar(cornerRadiusTopLeft=4, cornerRadiusTopRight=4, color=couleur)
+    barres = base.mark_bar(cornerRadiusTopLeft=3, cornerRadiusTopRight=3, color=couleur, opacity=0.9)
     return habiller(barres.properties(height=320), sombre)
 
 
