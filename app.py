@@ -133,7 +133,8 @@ def habiller(graphique, sombre=False):
     """Style commun : fond transparent, grille discrète, texte lisible dans le mode choisi."""
     m = MODES[sombre]
     return (
-        graphique.configure_view(stroke=None, fill=m["fond"] if sombre else None)
+        graphique.configure(background=m["fond"] if sombre else "white")
+        .configure_view(stroke=None, fill=m["fond"] if sombre else None)
         .configure_axis(
             labelColor=m["encre_secondaire"], titleColor=m["encre_secondaire"], gridColor=m["grille"],
             domainColor=m["axe"], tickColor=m["axe"], labelFont="sans-serif", titleFont="sans-serif",
@@ -397,7 +398,10 @@ def main():
 
     if afficher_tableau:
         st.subheader("Tableau des indicateurs")
-        st.dataframe(tableau_lisible(df), width="stretch")
+        tableau = tableau_lisible(df)
+        if sombre:
+            tableau = tableau.style.set_properties(**{"background-color": "#242422", "color": m["encre"]})
+        st.dataframe(tableau, width="stretch")
         st.caption(
             "Montants en milliards de dollars (Md$), taux en pourcentage, ratios sans unité (x). "
             "Un tiret signale une donnée absente dans le rapport."
