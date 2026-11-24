@@ -62,6 +62,20 @@ def test_comparaison_met_les_entreprises_en_colonnes():
     assert tableau.loc[2025, "B CORP"] == pytest.approx(20.0)
 
 
+@pytest.mark.parametrize("sombre", [False, True])
+def test_graphiques_valides_dans_les_deux_modes(sombre):
+    from app import couleurs_entreprises, graphique_comparaison, graphique_lignes
+
+    gold = gold_exemple()
+    couleurs = couleurs_entreprises(gold, sombre)
+    colonnes = ["Marge nette (%)", "ROE (%)"]
+    lignes = graphique_lignes(tableau_entreprise(gold, "A CORP"), colonnes, "%",
+                              {c: couleurs["A CORP"] for c in colonnes}, sombre)
+    lignes.to_dict(validate=True)
+    comparaison = graphique_comparaison(gold, ["A CORP", "B CORP"], "Marge nette (%)", couleurs, sombre)
+    comparaison.to_dict(validate=True)
+
+
 def test_utilise_les_donnees_publiques_quand_data_est_absent(tmp_path, monkeypatch):
     import app as appli_module
 
