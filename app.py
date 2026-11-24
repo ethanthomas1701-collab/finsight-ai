@@ -149,8 +149,8 @@ def habiller(graphique, sombre=False):
     """Style commun : fond transparent, grille discrète, texte lisible dans le mode choisi."""
     m = MODES[sombre]
     return (
-        graphique.configure(background=m["fond"])
-        .configure_view(stroke=None, fill=m["fond"] if sombre else None)
+        graphique.configure(background="rgba(0,0,0,0)")
+        .configure_view(stroke=None, fill=None)
         # Axe horizontal : pas de trait ni de graduation, pas de grille verticale.
         .configure_axisX(
             domain=False, ticks=False, grid=False, labelPadding=10,
@@ -275,27 +275,54 @@ def carte_kpi(titre, valeur, variation, unite, couleur, sombre=False, manquant=F
 
 STYLE = """
 <style>
+  /* Fond : des taches de couleur derrière le verre, pour que le flou ait quelque chose à traverser. */
+  .stApp {
+    background:
+      radial-gradient(60vw 50vh at 8% 10%, rgba(42,120,214,.30), transparent 70%),
+      radial-gradient(50vw 45vh at 94% 6%, rgba(255,90,54,.26), transparent 70%),
+      radial-gradient(55vw 50vh at 72% 94%, rgba(27,175,122,.22), transparent 70%),
+      radial-gradient(45vw 40vh at 6% 92%, rgba(237,161,0,.22), transparent 70%),
+      #fbf6ec;
+    background-attachment: fixed;
+  }
+  :root {
+    --verre: rgba(255,255,255,.46);
+    --verre-bord: rgba(255,255,255,.78);
+    --verre-ombre: 0 10px 30px rgba(20,28,48,.12);
+  }
   .entete {
-    background: #2a78d6; color: #ffffff; border-radius: 18px; padding: 28px 32px; margin-bottom: 8px;
+    background: rgba(42,120,214,.84); color: #ffffff; border-radius: 24px; padding: 28px 32px; margin-bottom: 8px;
+    border: 1px solid rgba(255,255,255,.45); box-shadow: 0 14px 36px rgba(42,120,214,.28), inset 0 1px 0 rgba(255,255,255,.35);
+    backdrop-filter: blur(18px) saturate(160%); -webkit-backdrop-filter: blur(18px) saturate(160%);
   }
   .entete h1 { color: #ffffff; margin: 0 0 6px 0; font-size: 2.6rem; }
-  .entete p { margin: 0; font-size: 1.05rem; opacity: 0.95; }
+  .entete p { margin: 0; font-size: 1.05rem; }
   .chips { margin-top: 14px; display: flex; gap: 8px; flex-wrap: wrap; }
   .chip {
-    background: #ffffff; color: #0b0b0b; border-radius: 999px; padding: 4px 12px;
-    font-size: 0.85rem; font-weight: 600;
+    background: rgba(255,255,255,.22); color: #ffffff; border: 1px solid rgba(255,255,255,.5);
+    border-radius: 999px; padding: 4px 12px; font-size: 0.85rem; font-weight: 600;
   }
   .cartes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin: 12px 0 8px 0; }
   .carte {
-    border-radius: 16px; padding: 18px 20px; background: color-mix(in srgb, var(--couleur) 10%, transparent);
-    border-left: 6px solid var(--couleur);
+    border-radius: 22px; padding: 18px 20px;
+    background: linear-gradient(160deg, color-mix(in srgb, var(--couleur) 22%, rgba(255,255,255,.55)), rgba(255,255,255,.34));
+    border: 1px solid color-mix(in srgb, var(--couleur) 45%, #ffffff);
+    box-shadow: var(--verre-ombre), inset 0 1px 0 rgba(255,255,255,.6);
+    backdrop-filter: blur(16px) saturate(150%); -webkit-backdrop-filter: blur(16px) saturate(150%);
   }
   .carte-titre { font-size: 0.9rem; font-weight: 600; opacity: 0.8; }
   .carte-valeur { font-size: 1.7rem; font-weight: 800; margin: 4px 0; white-space: nowrap; }
   .delta { font-size: 0.9rem; font-weight: 600; }
   .delta.hausse { color: var(--vert, #006300); }
-  .delta.baisse { color: var(--rouge, #d03b3b); }
+  .delta.baisse { color: var(--rouge, #b42323); }
   .delta.neutre { opacity: 0.7; }
+  /* Panneaux de verre : onglets et section d'aide. */
+  div[role="tabpanel"], [data-testid="stExpander"] {
+    background: var(--verre); border: 1px solid var(--verre-bord); border-radius: 22px;
+    box-shadow: var(--verre-ombre), inset 0 1px 0 rgba(255,255,255,.6);
+    backdrop-filter: blur(16px) saturate(150%); -webkit-backdrop-filter: blur(16px) saturate(150%);
+  }
+  div[role="tabpanel"] { padding: 18px 20px; margin-top: 8px; }
   @media (max-width: 800px) { .cartes { grid-template-columns: repeat(2, 1fr); } }
 </style>
 """
@@ -317,7 +344,18 @@ def style_sombre(m):
   .stApp [data-baseweb="select"] svg {{ fill: {m['encre']} !important; }}
   .stApp [data-baseweb="tag"] {{ background-color: #3987e5; }}
   .stApp [data-baseweb="popover"] li, .stApp [data-baseweb="menu"] {{ background-color: #242422; color: {m['encre']}; }}
-  :root {{ --vert: {m['vert']}; --rouge: {m['rouge']}; }}
+  .stApp {{
+    background:
+      radial-gradient(60vw 50vh at 8% 10%, rgba(57,135,229,.30), transparent 70%),
+      radial-gradient(50vw 45vh at 94% 6%, rgba(217,89,38,.24), transparent 70%),
+      radial-gradient(55vw 50vh at 72% 94%, rgba(25,158,112,.20), transparent 70%),
+      #121211;
+    background-attachment: fixed;
+  }}
+  :root {{ --verre: rgba(34,34,32,.52); --verre-bord: rgba(255,255,255,.12); --verre-ombre: 0 12px 36px rgba(0,0,0,.45); --vert: {m['vert']}; --rouge: {m['rouge']}; }}
+  .entete {{ background: rgba(43,101,180,.72) !important; border-color: rgba(255,255,255,.14) !important; box-shadow: 0 14px 40px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.12) !important; }}
+  .carte {{ background: linear-gradient(160deg, color-mix(in srgb, var(--couleur) 20%, rgba(34,34,32,.55)), rgba(34,34,32,.42)) !important; border-color: color-mix(in srgb, var(--couleur) 40%, transparent) !important; box-shadow: 0 12px 36px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.08) !important; }}
+  .chip {{ background: rgba(255,255,255,.10) !important; }}
 </style>
 """
 
