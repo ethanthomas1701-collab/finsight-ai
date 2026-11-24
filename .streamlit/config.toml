@@ -1,3 +1,4 @@
 [theme]
-primaryColor = "#2f4bd8"
+base = "light"
+primaryColor = "#2a78d6"
 font = "sans serif"
