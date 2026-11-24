@@ -33,7 +33,7 @@ GRIS_DISCRET = "#898781"
 # Couleurs de texte et de fond, par mode.
 MODES = {
     False: {"encre": "#0b0b0b", "encre_secondaire": "#52514e", "grille": "#e1e0d9", "axe": "#c3c2b7",
-            "fond": "#fcfcfb", "palette": PALETTE_CLAIR, "vert": "#006300", "rouge": "#d03b3b"},
+            "fond": "#fbf6ec", "palette": PALETTE_CLAIR, "vert": "#006300", "rouge": "#d03b3b"},
     True: {"encre": "#f0efec", "encre_secondaire": "#c3c2b7", "grille": "#2c2c2a", "axe": "#383835",
            "fond": "#1a1a19", "palette": PALETTE_SOMBRE, "vert": "#0ca30c", "rouge": "#e66767"},
 }
@@ -149,7 +149,7 @@ def habiller(graphique, sombre=False):
     """Style commun : fond transparent, grille discrète, texte lisible dans le mode choisi."""
     m = MODES[sombre]
     return (
-        graphique.configure(background=m["fond"] if sombre else "white")
+        graphique.configure(background=m["fond"])
         .configure_view(stroke=None, fill=m["fond"] if sombre else None)
         # Axe horizontal : pas de trait ni de graduation, pas de grille verticale.
         .configure_axisX(
@@ -291,7 +291,7 @@ STYLE = """
     border-left: 6px solid var(--couleur);
   }
   .carte-titre { font-size: 0.9rem; font-weight: 600; opacity: 0.8; }
-  .carte-valeur { font-size: 2rem; font-weight: 800; margin: 4px 0; }
+  .carte-valeur { font-size: 1.7rem; font-weight: 800; margin: 4px 0; white-space: nowrap; }
   .delta { font-size: 0.9rem; font-weight: 600; }
   .delta.hausse { color: var(--vert, #006300); }
   .delta.baisse { color: var(--rouge, #d03b3b); }
@@ -347,7 +347,7 @@ def main():
     entreprises = sorted(gold["entreprise"].unique())
 
     # Filtres et affichage : une seule rangée, au-dessus de tout le contenu.
-    col_entreprise, col_periode, col_devise, col_tableau, col_sombre = st.columns([2.2, 2.6, 1.1, 1.5, 1.4])
+    col_entreprise, col_periode, col_devise, col_tableau, col_sombre = st.columns([2.0, 2.4, 1.1, 1.8, 1.7])
     with col_entreprise:
         entreprise = st.selectbox("Entreprise", entreprises)
     annees = sorted(gold.loc[gold["entreprise"] == entreprise, "annee"].unique())
