@@ -186,12 +186,41 @@ def chiffres_non_sources(reponse, extraits, question=""):
             if len(c) >= 2 and c not in dans_les_passages and c not in dans_la_question}
 
 
-def repondre(question, passages, appel=appeler_ollama):
+MODELE_CLAUDE = "claude-haiku-5-5"
+
+
+def appeler_claude(message, modele=MODELE_CLAUDE):
+    """Rédaction par l'API Claude. Nécessite ANTHROPIC_API_KEY ; le SDK la lit dans l'environnement."""
+    import anthropic
+
+    client = anthropic.Anthropic()
+    reponse = client.messages.create(
+        model=modele,
+        max_tokens=600,
+        temperature=0,
+        messages=[{"role": "user", "content": message}],
+    )
+    return "".join(bloc.text for bloc in reponse.content if getattr(bloc, "type", "") == "text").strip()
+
+
+def moteur_par_defaut():
+    """Claude si une clé est configurée et si LECTEUR_MOTEUR ne force pas Ollama, sinon Ollama."""
+    import os
+
+    if os.environ.get("LECTEUR_MOTEUR", "").lower() == "ollama":
+        return appeler_ollama
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        return appeler_claude
+    return appeler_ollama
+
+
+def repondre(question, passages, appel=None):
     """Répond à la question à partir des passages. `appel` est injectable pour les tests.
 
     Garde-fou : une réponse qui cite un chiffre absent des passages est refusée, plutôt que
     transmise comme si elle était vérifiée.
     """
+    appel = appel or moteur_par_defaut()
     extraits = rechercher(question, passages)
     if not extraits:
         return {"reponse": ABSENT, "sources": []}
