@@ -203,14 +203,67 @@ def appeler_claude(message, modele=MODELE_CLAUDE):
     return "".join(bloc.text for bloc in reponse.content if getattr(bloc, "type", "") == "text").strip()
 
 
+_RE_PHRASE = re.compile(r"(?<=[.;:!?])\s+")
+
+
+def phrases_du_rapport(passages):
+    """Phrases complètes du rapport, chacune avec sa section d'origine."""
+    sortie = []
+    for passage in passages:
+        for morceau in _RE_PHRASE.split(passage["texte"]):
+            phrase = morceau.strip()
+            if 25 <= len(phrase) <= 400:
+                sortie.append({"section": passage["section"], "texte": phrase})
+    return sortie
+
+
+def repondre_extractif(question, passages, couverture_min=2):
+    """Réponse sans modèle : la phrase du rapport qui répond à la question, citée telle quelle.
+
+    La phrase doit contenir au moins `couverture_min` termes de la question (ou tous, si la question
+    en compte moins). Sinon, « Information absente du rapport ».
+    """
+    termes = set(_jetons(question))
+    if not termes:
+        return {"reponse": ABSENT, "sources": []}
+    # 1. Passages retenus par la même recherche que le mode rédigé.
+    passages_retenus = rechercher(question, passages, k=NOMBRE_PASSAGES)
+    phrases = phrases_du_rapport(passages_retenus)
+    if not phrases:
+        return {"reponse": ABSENT, "sources": []}
+    # 2. Termes rares : présents dans peu de phrases du rapport entier (« lvmh », « groupe » ne comptent pas).
+    toutes = [set(_jetons(p["texte"])) for p in phrases_du_rapport(passages)]
+    seuil_rare = 0.03 * len(toutes)
+    frequence = Counter(t for ph in toutes for t in ph)
+    rares = {t for t in termes if frequence[t] <= seuil_rare}
+    # 3. La phrase la plus riche en termes rares, avec au moins deux termes distincts de la question.
+    meilleure, meilleur_score = None, 0
+    for p in phrases:
+        mots = set(_jetons(p["texte"]))
+        communs = termes & mots
+        if len(communs) < min(couverture_min, len(termes)):
+            continue
+        score = len(communs & rares) * 2 + len(communs)
+        if score > meilleur_score:
+            meilleure, meilleur_score = p, score
+    if meilleure is None or not (termes & rares) & set(_jetons(meilleure["texte"])):
+        return {"reponse": ABSENT, "sources": []}
+    return {"reponse": f"Extrait du rapport : « {meilleure['texte']} »", "sources": [meilleure["section"]]}
+
+
 def moteur_par_defaut():
-    """Claude si une clé est configurée et si LECTEUR_MOTEUR ne force pas Ollama, sinon Ollama."""
+    """Moteur de rédaction : Ollama par défaut (local, sans clé), ou LECTEUR_MOTEUR=claude|extractif.
+
+    Le mode extractif (sans modèle) reste disponible, mais il obtient 2 réponses sur 10 sur le test :
+    il n'est pas recommandé.
+    """
     import os
 
-    if os.environ.get("LECTEUR_MOTEUR", "").lower() == "ollama":
-        return appeler_ollama
-    if os.environ.get("ANTHROPIC_API_KEY"):
+    choix = os.environ.get("LECTEUR_MOTEUR", "ollama").lower()
+    if choix == "claude":
         return appeler_claude
+    if choix == "extractif":
+        return None
     return appeler_ollama
 
 
@@ -221,6 +274,8 @@ def repondre(question, passages, appel=None):
     transmise comme si elle était vérifiée.
     """
     appel = appel or moteur_par_defaut()
+    if appel is None:  # mode extractif : aucune rédaction, donc aucun risque d'invention
+        return repondre_extractif(question, passages)
     extraits = rechercher(question, passages)
     if not extraits:
         return {"reponse": ABSENT, "sources": []}
