@@ -57,6 +57,29 @@ def test_source_deterministe_selon_le_chiffre_de_la_reponse():
     assert sources == ["Dividende"]
 
 
+def test_refuse_un_chiffre_absent_des_passages():
+    from assistant.lecteur_rapport import NON_VERIFIE
+
+    passages = decouper(extraire_sections(XHTML), mots_max=500)
+    resultat = repondre(
+        "Quel est le dividende ?",
+        passages,
+        appel=lambda m: "Le dividende est de 999 euros par action.",
+    )
+    assert resultat["reponse"] == NON_VERIFIE
+    assert resultat["sources"] == []
+
+
+def test_accepte_un_chiffre_present_dans_les_passages():
+    passages = decouper(extraire_sections(XHTML), mots_max=500)
+    resultat = repondre(
+        "Quel est le dividende ?",
+        passages,
+        appel=lambda m: "Le dividende est de 13,00 euros par action.",
+    )
+    assert "13,00" in resultat["reponse"]
+
+
 def test_retire_la_citation_inventee_par_le_modele():
     passages = decouper(extraire_sections(XHTML), mots_max=500)
     resultat = repondre(

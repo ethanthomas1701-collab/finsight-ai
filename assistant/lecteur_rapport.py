@@ -23,7 +23,7 @@ URL_OLLAMA = "http://localhost:11434/api/chat"
 MODELE = "qwen2.5:3b"
 DELAI = 300
 MOTS_PAR_PASSAGE = 220
-NOMBRE_PASSAGES = 6
+NOMBRE_PASSAGES = 6  # 10 passages dégradent le modèle 3B (mesuré : 5/10 contre 8/10)
 ABSENT = "Information absente du rapport."
 
 MOTS_VIDES = set("""
@@ -171,8 +171,27 @@ def sections_sources(reponse, extraits):
     return sorted(set(retenues))
 
 
+NON_VERIFIE = "Réponse non vérifiable : un chiffre cité n'apparaît pas dans les passages du rapport."
+
+
+def chiffres_non_sources(reponse, extraits, question=""):
+    """Chiffres de la réponse qui n'apparaissent dans aucun passage retrouvé.
+
+    Les chiffres repris de la question (par exemple « 2025 ») ne sont pas contrôlés : ils ne viennent
+    pas du modèle. Les nombres d'un seul chiffre sont ignorés (trop de faux positifs).
+    """
+    dans_les_passages = _chiffres(" ".join(e["texte"] for e in extraits))
+    dans_la_question = _chiffres(question)
+    return {c for c in _chiffres(reponse)
+            if len(c) >= 2 and c not in dans_les_passages and c not in dans_la_question}
+
+
 def repondre(question, passages, appel=appeler_ollama):
-    """Répond à la question à partir des passages. `appel` est injectable pour les tests."""
+    """Répond à la question à partir des passages. `appel` est injectable pour les tests.
+
+    Garde-fou : une réponse qui cite un chiffre absent des passages est refusée, plutôt que
+    transmise comme si elle était vérifiée.
+    """
     extraits = rechercher(question, passages)
     if not extraits:
         return {"reponse": ABSENT, "sources": []}
@@ -180,6 +199,8 @@ def repondre(question, passages, appel=appeler_ollama):
     reponse = _RE_CITATION_MODELE.sub("", brute).strip()
     if reponse == ABSENT:
         return {"reponse": ABSENT, "sources": []}
+    if chiffres_non_sources(reponse, extraits, question):
+        return {"reponse": NON_VERIFIE, "sources": []}
     return {"reponse": reponse, "sources": sections_sources(reponse, extraits)}
 
 
